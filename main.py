@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 
 def evangeliza():
     soup = BeautifulSoup(requests.get("https://dailyverses.net/pt/versiculo-aleatorio-da-biblia").text, 'html.parser')
-    referencia = soup.find("div", {"class":"reference"})
-    salmo = soup.find("div", {"class":"bibleVerse"})
+    salmo = soup.find("span", {"class":"v1"})
+    referencia = soup.find("a", {"class":"vc"})
     keyboard.write("/all "+salmo.text.split(".")[0]+" - "+referencia.text, delay=0.01)
     keyboard.press_and_release('enter')
 
