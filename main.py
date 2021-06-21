@@ -1,21 +1,54 @@
-import keyboard, random, time, requests
+import keyboard, random, threading, requests
 from bs4 import BeautifulSoup
 
-def salmo():
-    soup = BeautifulSoup(requests.get("https://dailyverses.net/pt/versiculo-aleatorio-da-biblia").text, 'html.parser')
-    salmo = soup.find("span", {"class":"v1"})
-    referencia = soup.find("a", {"class":"vc"})
-    return [salmo.text.split(".")[0], referencia]
+class SalmoGenerator():
+    AVAILABLE_APIS = {
+        "dailyverse":"https://dailyverses.net/pt/versiculo-aleatorio-da-biblia"
+    }
 
-def evangeliza():
-    [v, referencia] = salmo()
-    # P/ pegar sempre salmos pequenos, para não cortar no chat
-    while len(v) + len(referencia.text) >= 140:
-        [v, referencia] = salmo()
+    def __init__(self, api="dailyverse"):
+        self.endpoint = self.AVAILABLE_APIS[api]
+        self._lock = threading.Lock()
+        self.servo = threading.Thread(target=self.auto_salmo)
+        self._ready = []
+        self._stop_flag = False
+
+    def get_salmo(self):
+        soup = BeautifulSoup(requests.get(self.endpoint).text, 'html.parser')
+        salmo = soup.find("span", {"class":"v1"})
+        referencia = soup.find("a", {"class":"vc"})
+        return [salmo.text.split(".")[0], referencia.text]
+
+    def auto_salmo(self):
+        conds = True
+        print("[i] Loading salmos....")
+        while(conds):
+            if self._stop_flag:
+                conds = False
+
+            [v, ref] = self.get_salmo()
+            if len(v) + len(ref) < 140:
+                self._lock.acquire()
+                self._ready.append("/all %s - %s" % (v,ref))
+                self._lock.release()
+
+    def evangeliza(self):
+        if len(self._ready) > 0:
+            txt = self._ready.pop()
+            keyboard.write(txt)
+            keyboard.press_and_release('enter')
     
-    keyboard.write("/all "+v+" - "+referencia.text, delay=0.001)
-    keyboard.press_and_release('enter')
+    def blasfemia(self):
+        self._stop_flag = True
 
-keyboard.add_hotkey('enter', lambda: evangeliza())
-keyboard.wait('esc')
+def main():
+    print("[i] Starting... \n Coded by GuilhermeC")
+    client = SalmoGenerator()
+    client.servo.start()
+    keyboard.add_hotkey('enter', lambda: client.evangeliza())
+    keyboard.wait('esc')
+    print("[!] Got exit arg")
+    client.blasfemia()
 
+if __name__ == '__main__':
+    main()
